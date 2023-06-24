@@ -1,0 +1,730 @@
+#please run the prediciton.r file seperately.
+
+install.packages("shiny")
+install.packages("gridExtra")
+install.packages("psych")
+install.packages("ggridges")
+install.packages("grid")
+install.packages("shinydashboard")
+library(readr)
+library(shiny)
+library(dplyr)
+library(shinydashboard)
+library(gridExtra)
+library(grid)
+library(ggplot2)
+library(psych)
+library(ggridges)
+
+
+##Data Preprocessing 
+#Importing dataset
+dataset <- read.csv("datasets_13996_18858_WA_Fn-UseC_-Telco-Customer-Churn.csv")
+colSums(is.na(dataset))
+mean(dataset$TotalCharges,na.rm = T)
+median(dataset$TotalCharges,na.rm = T)
+dataset$TotalCharges <- ifelse(is.na(dataset$TotalCharges),median(dataset$TotalCharges,na.rm = T),dataset$TotalCharges)
+
+contract_options <- c("No Filter","Month-to-month","One year","Two year")
+library(ggplot2)
+data <- data.frame(table(dataset$Churn))
+data$fraction <- data$Freq / sum(data$Freq)
+data$ymax <- cumsum(data$fraction)
+data$ymin <- c(0, head(data$ymax, n=-1))
+data$labelPosition <- (data$ymax + data$ymin) / 2
+data$label <- paste0(data$Var1," ",round((data$Freq/sum(data$Freq))*100,2) , " %" )
+
+ui <- fluidPage(
+  dashboardPage(
+    dashboardHeader(title = "Churn Analysis"),
+    dashboardSidebar(width = 200,sidebarMenu(
+      menuItem("Dashboard",tabName = "Dashboard",icon = icon("dashboard")),
+      menuItem("Network Services",tabName = "NetworkServices"),
+      menuItem("Customer Services",tabName = "CustomerServices"),
+      menuItem("Online Services",tabName = "OnlineServices"),
+      menuItem("Device Services",tabName = "DeviceServices"),
+      menuItem("Streaming Services",tabName = "StreamingServices"),
+      menuItem("Payment Services",tabName = "PaymentServices"),selectInput("Contract",label = "Contract:",choices = c(contract_options),selected = "No Filter")
+    )),
+    dashboardBody(
+      tabItems(
+        tabItem(tabName = "Dashboard",
+                fluidRow(box(title = "Churn Rate",width = NULL,solidHeader = T,status = "primary",fluidRow(box(width = NULL,title = NULL,status = NULL,plotOutput("plot_pie"))))),
+                box(title = "Churn Distribution", width = NULL, solidHeader = T,status = "primary", color = "#286192",
+                    fluidRow(
+                      infoBox("Number of Customers",nrow(dataset), icon = icon("database"), fill = TRUE),
+                      infoBox("Customers not Churned",table(dataset$Churn)[1],icon = icon("database"), fill = T,color = "green"),
+                      infoBox("Customers Churned",table(dataset$Churn)[2],icon = icon("database"), fill = T,color = "yellow")),
+                    fluidRow(
+                      infoBox("Total % of Customers",'100 %', icon = icon("database"),fill = T),
+                      infoBox("% of Customers not Churned",round(((table(dataset$Churn)[1])/nrow(dataset))*100,2),icon = icon("database"),fill = T,color = "green"),
+                      infoBox("% of Customers Churned",round(((table(dataset$Churn)[2])/nrow(dataset))*100,2),icon = icon("database"),fill = T,color = "yellow"))),
+                box(title = "Average Customer Tenure (in Months)", width = NULL, solidHeader = T,status = "primary", color = "#286192",
+                    fluidRow(
+                      infoBox("All Customers",round(mean(dataset$tenure),2), icon = icon("database"), fill = TRUE),
+                      infoBox("Customers not Churned",round(mean(dataset$tenure[which(dataset$Churn == "No")]),2),icon = icon("database"), fill = T,color = "green"),
+                      infoBox("Customers Churned",round(mean(dataset$tenure[which(dataset$Churn == "Yes")]),2),icon = icon("database"), fill = T,color = "yellow"))),
+                box(title = "Average Monthly Charges", width = NULL, solidHeader = T,status = "primary", color = "#286192",
+                    fluidRow(
+                      infoBox("All Customers",round(mean(dataset$MonthlyCharges),2), icon = icon("database"), fill = TRUE),
+                      infoBox("Customers not Churned",round(mean(dataset$MonthlyCharges[which(dataset$Churn == "No")]),2),icon = icon("database"), fill = T,color = "green"),
+                      infoBox("Customers Churned",round(mean(dataset$MonthlyCharges[which(dataset$Churn == "Yes")]),2),icon = icon("database"), fill = T,color = "yellow"))),
+                box(title = "Average Total Charges", width = NULL, solidHeader = T,status = "primary", color = "#286192",
+                    fluidRow(
+                      infoBox("All Customers",round(mean(dataset$TotalCharges),2), icon = icon("database"), fill = TRUE),
+                      infoBox("Customers not Churned",round(mean(dataset$TotalCharges[which(dataset$Churn == "No")]),2),icon = icon("database"), fill = T,color = "green"),
+                      infoBox("Customers Churned",round(mean(dataset$TotalCharges[which(dataset$Churn == "Yes")]),2),icon = icon("database"), fill = T,color = "yellow"))),
+                fluidRow(box(title = "Density of tenure W.r.to Churn",width = NULL,solidHeader = T,status = "primary",fluidRow(box(width = NULL,title = NULL,status = NULL,plotOutput("plot_d"))))),
+                fluidRow(box(title = "Correlation between tenure and charges",width = NULL,solidHeader = T,status = "primary",fluidRow(box(width = NULL,title = NULL,status = NULL,plotOutput("plot_corr")))
+                ))),
+        tabItem(tabName = "NetworkServices",fluidRow(
+          box(title = "Network Services", width = NULL, solidHeader = TRUE, status = "primary",
+              fluidRow(
+                tabBox(width = NULL, title = " ", side = "left",
+                       tabPanel("Phone Service",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot2")))),
+                       tabPanel("Internet Service",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot3")))),
+                       tabPanel("Multiple Lines",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot4"))))))))),
+        tabItem(tabName = "CustomerServices",fluidRow(
+          box(title = "Customer Services", width = NULL, solidHeader = TRUE, status = "primary",
+              fluidRow(
+                tabBox(width = NULL, title = " ", side = "left",
+                       tabPanel("Senior Citizen",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot5")))),
+                       tabPanel("Partner",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot6")))),
+                       tabPanel("Dependents",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot7"))))))))),
+        tabItem(tabName = "OnlineServices",fluidRow(
+          box(title = "Online Services", width = NULL, solidHeader = TRUE, status = "primary",
+              fluidRow(
+                tabBox(width = NULL, title = " ", side = "left",
+                       tabPanel("Online Security",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot8")))),
+                       tabPanel("Online Backup",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot9"))))))))),
+        tabItem(tabName = "DeviceServices",fluidRow(
+          box(title = "Device Services", width = NULL, solidHeader = TRUE, status = "primary",
+              fluidRow(
+                tabBox(width = NULL, title = " ", side = "left",
+                       tabPanel("Device Protection",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot10")))),
+                       tabPanel("Tech Support",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot11"))))))))),
+        tabItem(tabName = "StreamingServices",fluidRow(
+          box(title = "Streaming Services", width = NULL, solidHeader = TRUE, status = "primary",
+              fluidRow(
+                tabBox(width = NULL, title = " ", side = "left",
+                       tabPanel("Streaming TV",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot12")))),
+                       tabPanel("Streaming Movies",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot13"))))))))),
+        tabItem(tabName = "PaymentServices",fluidRow(
+          box(title = "Payment Services", width = NULL, solidHeader = TRUE, status = "primary",
+              fluidRow(
+                tabBox(width = NULL, title = " ", side = "left",
+                       tabPanel("Payment Method",
+                                fluidRow(box(width = NULL,title = NULL, status = NULL,plotOutput("plot14"))))))))))
+      
+    )))
+
+
+
+
+server <- function(input, output) {
+  
+  rv = reactiveValues()
+  rv$dataset=dataset
+  observe({
+    rv$dataset = dataset %>% filter(if(input$Contract == 'No Filter'){Contract %in% contract_options} else {Contract == input$Contract})
+    rv$churn = filter(rv$dataset, Churn == 'Yes')
+    rv$stayed = filter(rv$dataset, Churn == 'No')
+    rv$dim = dim(rv$dataset)
+    rv$dimStayed = dim(rv$stayed)
+    rv$dimChurn = dim(rv$churn)
+  })
+  output$customerCountNoFilter <- renderInfoBox({
+    x = format(rv$dim[1], big.mark = ",")
+    infoBox("Customer Count", x,
+            color = "light-blue",
+            icon = icon("users"))})
+  output$plot2 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=PhoneService, fill = factor(PhoneService)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=PhoneService, fill = factor(PhoneService)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=PhoneService, fill = factor(PhoneService)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot2 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot2
+  })
+  output$plot3 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=InternetService, fill = factor(InternetService)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7","#286192"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=InternetService, fill = factor(InternetService)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c","#286192"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=InternetService, fill = factor(InternetService)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e","#286192"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot3 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot3
+  })
+  output$plot4 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=MultipleLines, fill = factor(MultipleLines)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7","#286192"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=MultipleLines, fill = factor(MultipleLines)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c","#286192"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=MultipleLines, fill = factor(MultipleLines)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e","#286192"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot4 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot4
+  })
+  output$plot5 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=SeniorCitizen, fill = factor(SeniorCitizen)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=SeniorCitizen, fill = factor(SeniorCitizen)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=SeniorCitizen, fill = factor(SeniorCitizen)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot5 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot5
+  })
+  output$plot6 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=Partner, fill = factor(Partner)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=Partner, fill = factor(Partner)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=Partner, fill = factor(Partner)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot6 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot6
+  })
+  output$plot7 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=Dependents, fill = factor(Dependents)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=Dependents, fill = factor(Dependents)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=Dependents, fill = factor(Dependents)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot7 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot7
+  })
+  output$plot8 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=OnlineSecurity, fill = factor(OnlineSecurity)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7","#286192"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=OnlineSecurity, fill = factor(OnlineSecurity)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c","#286192"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=OnlineSecurity, fill = factor(OnlineSecurity)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e","#286192"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot8 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot8
+  })
+  output$plot9 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=OnlineBackup, fill = factor(OnlineBackup)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7","#286192"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=OnlineBackup, fill = factor(OnlineBackup)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c","#286192"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=OnlineBackup, fill = factor(OnlineBackup)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e","#286192"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot9 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot9
+  })
+  output$plot10 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=DeviceProtection, fill = factor(DeviceProtection)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7","#286192"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=DeviceProtection, fill = factor(DeviceProtection)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c","#286192"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=DeviceProtection, fill = factor(DeviceProtection)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e","#286192"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot10 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot10
+  })
+  output$plot11 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=TechSupport, fill = factor(TechSupport)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7","#286192"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=TechSupport, fill = factor(TechSupport)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c","#286192"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=TechSupport, fill = factor(TechSupport)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e","#286192"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot11 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot11
+  })
+  output$plot12 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=StreamingTV, fill = factor(StreamingTV)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7","#286192"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=StreamingTV, fill = factor(StreamingTV)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c","#286192"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=StreamingTV, fill = factor(StreamingTV)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e","#286192"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot12 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot12
+  })
+  output$plot13 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=StreamingMovies, fill = factor(StreamingMovies)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7","#286192"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=StreamingMovies, fill = factor(StreamingMovies)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c","#286192"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=StreamingMovies, fill = factor(StreamingMovies)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e","#286192"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot13 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot13
+  })
+  output$plot14 <- renderPlot({
+    
+    p1 <- ggplot(rv$dataset, aes(x=PaymentMethod, fill = factor(PaymentMethod)))+
+      geom_bar(position = "dodge",  fill = c("#5b94c5","#337ab7","#286192","#5b94c5"), color = "#1e496d") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$dataset)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "All Customers", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p2 <- ggplot(rv$stayed, aes(x=PaymentMethod, fill = factor(PaymentMethod)))+
+      geom_bar(position = "dodge", fill = c("#7cc67c", "#5cb85c","#286192","#5b94c5"), color = ("#376e37")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$stayed)*100,2), "%")),
+                stat = "count", position = "dodge",hjust = -0.1) +
+      labs(title = "Customers Not Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(size = 10),
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    p3 <- ggplot(rv$churn, aes(x=PaymentMethod, fill = factor(PaymentMethod)))+
+      geom_bar(position = "dodge", fill = c("#f3bd71","#f0ad4e","#286192","#5b94c5"), color = "#ba7412") +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(rv$churn)*100,2), "%")),
+                stat = "count", position = "dodge", hjust = -0.1) +
+      labs(title = "Customers Churned", fill = '')+
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.ticks=element_blank(),
+            axis.title=element_blank(),
+            panel.grid=element_blank(),
+            panel.border=element_blank())
+    plot14 <- grid.arrange(p1, p2, p3, ncol = 1)
+    plot14
+  })
+  output$plot_d <- renderPlot({
+    plot_d <- ggplot(dataset, aes(x = tenure, y = Churn)) +
+      geom_density_ridges(aes(fill = Churn)) +
+      scale_fill_manual(values = c("#00AFBB", "#E7B800", "#FC4E07"))
+    plot_d
+  })
+  output$plot_corr <- renderPlot({
+    plot_corr <- pairs.panels(dataset[,c("tenure","MonthlyCharges","TotalCharges")],gap = 0,density = TRUE)
+    plot_corr
+  })
+  output$plot_pie <- renderPlot({
+    plot_pie <- ggplot(data, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=Var1)) +
+      geom_rect() +
+      geom_label( x=3.5, aes(y=labelPosition, label=label), size=6) +
+      scale_fill_brewer(palette=4) +
+      coord_polar(theta="y") +
+      xlim(c(2, 4)) +
+      theme_void() +
+      theme(legend.position = "none")
+    plot_pie
+  })
+}  
+
+# Execute the application 
+shinyApp(ui, server)
+
+
+#please run the prediciton.r file seperately.
+
+
+
+
